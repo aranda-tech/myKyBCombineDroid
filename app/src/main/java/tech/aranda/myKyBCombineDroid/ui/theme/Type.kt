@@ -1,4 +1,4 @@
-package com.example.mykybcombinedroid.ui.theme
+package com.example.myKyBCombineDroid.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

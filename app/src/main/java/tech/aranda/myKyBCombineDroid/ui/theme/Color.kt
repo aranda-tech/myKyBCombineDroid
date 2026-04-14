@@ -1,4 +1,4 @@
-package com.example.mykybcombinedroid.ui.theme
+package com.example.myKyBCombineDroid.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

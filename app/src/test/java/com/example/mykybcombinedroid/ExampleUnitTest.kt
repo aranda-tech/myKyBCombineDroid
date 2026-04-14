@@ -1,4 +1,4 @@
-package com.example.mykybcombinedroid
+package tech.aranda.myKyBCombineDroid
 
 import org.junit.Test
 
