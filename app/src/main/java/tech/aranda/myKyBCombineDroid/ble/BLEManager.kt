@@ -36,9 +36,9 @@ class BLEManager(private val context: Context) {
     companion object {
         const val TARGET_NAME = "JX-APP-A"
         val SERVICE_UUID: UUID = UUID.fromString("0000FFF0-0000-1000-8000-00805F9B34FB")
-        val WRITE_UUID: UUID = UUID.fromString("0000FFF2-0000-1000-8000-00805F9B34FB")
-        val NOTIFY_UUID: UUID = UUID.fromString("0000FFF1-0000-1000-8000-00805F9B34FB")
-        val CCCD_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805F9B34FB")
+        val WRITE_UUID: UUID   = UUID.fromString("0000FFF2-0000-1000-8000-00805F9B34FB")
+        val NOTIFY_UUID: UUID  = UUID.fromString("0000FFF1-0000-1000-8000-00805F9B34FB")
+        val CCCD_UUID: UUID    = UUID.fromString("00002902-0000-1000-8000-00805F9B34FB")
         const val SCAN_TIMEOUT_MS = 30_000L
     }
 
@@ -57,19 +57,33 @@ class BLEManager(private val context: Context) {
     private var writeChr: BluetoothGattCharacteristic? = null
     private val handler = Handler(Looper.getMainLooper())
 
+    init {
+        handler.post {
+            if (bluetoothAdapter?.isEnabled == true) {
+                addLog("Bluetooth ON")
+            } else {
+                addLog("Bluetooth OFF — enable it first")
+            }
+        }
+    }
+
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val device = result.device
             if (device.name == TARGET_NAME) {
-                addLog("Found $TARGET_NAME (RSSI: ${result.rssi})")
-                stopScan()
-                connect(device)
+                handler.post {
+                    addLog("Found $TARGET_NAME (RSSI: ${result.rssi})")
+                    stopScan()
+                    connect(device)
+                }
             }
         }
 
         override fun onScanFailed(errorCode: Int) {
-            addLog("Scan failed: $errorCode")
-            _state.value = HubState.Error("Scan failed")
+            handler.post {
+                addLog("Scan failed: $errorCode")
+                _state.value = HubState.Error("Scan failed")
+            }
         }
     }
 
@@ -99,19 +113,15 @@ class BLEManager(private val context: Context) {
                     _state.value = HubState.Error("Service not found")
                     return@post
                 }
-
                 addLog("Found service FFF0")
 
-                // Setup write characteristic
                 writeChr = service.getCharacteristic(WRITE_UUID)
                 if (writeChr != null) addLog("Found FFF2 (write)")
 
-                // Setup notify characteristic
                 val notifyChr = service.getCharacteristic(NOTIFY_UUID)
                 if (notifyChr != null) {
                     gatt.setCharacteristicNotification(notifyChr, true)
-                    val descriptor = notifyChr.getDescriptor(CCCD_UUID)
-                    descriptor?.let {
+                    notifyChr.getDescriptor(CCCD_UUID)?.let {
                         it.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
                         gatt.writeDescriptor(it)
                     }
@@ -147,21 +157,24 @@ class BLEManager(private val context: Context) {
 
     fun startScan() {
         if (bluetoothAdapter == null || !bluetoothAdapter.isEnabled) {
-            _state.value = HubState.Error("Bluetooth not enabled")
+            handler.post {
+                _state.value = HubState.Error("Bluetooth not enabled")
+                addLog("Bluetooth not enabled")
+            }
             return
         }
-
-        _state.value = HubState.Scanning
-        addLog("Scanning for $TARGET_NAME...")
-
+        handler.post {
+            _state.value = HubState.Scanning
+            addLog("Scanning for $TARGET_NAME...")
+        }
         bluetoothAdapter.bluetoothLeScanner?.startScan(scanCallback)
-
-        // Auto-stop scan after timeout
         handler.postDelayed({
             if (_state.value is HubState.Scanning) {
                 stopScan()
-                _state.value = HubState.Idle
-                addLog("Scan timed out")
+                handler.post {
+                    _state.value = HubState.Idle
+                    addLog("Scan timed out")
+                }
             }
         }, SCAN_TIMEOUT_MS)
     }
@@ -181,10 +194,13 @@ class BLEManager(private val context: Context) {
         gatt?.close()
         gatt = null
         writeChr = null
-        _state.value = HubState.Idle
-        addLog("Disconnected")
+        handler.post {
+            _state.value = HubState.Idle
+            addLog("Disconnected")
+        }
     }
 
+    // Fire-and-forget write — matches iOS behavior exactly
     fun send(data: ByteArray) {
         val chr = writeChr ?: return
         val g = gatt ?: return
@@ -197,10 +213,20 @@ class BLEManager(private val context: Context) {
         send(protocol.buildDrivePacket(driveY, steerX))
     }
 
+    // Stop: send idle packet 3 times to ensure it gets through
+    fun sendStop() {
+        val idle = protocol.idlePacket
+        send(idle)
+        handler.postDelayed({ send(idle) }, 20)
+        handler.postDelayed({ send(idle) }, 60)
+    }
+
     private fun addLog(message: String) {
         val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
             .format(java.util.Date())
         val entry = "[$time] $message"
-        _log.value = listOf(entry) + _log.value.take(49)
+        handler.post {
+            _log.value = listOf(entry) + _log.value.take(49)
+        }
     }
 }

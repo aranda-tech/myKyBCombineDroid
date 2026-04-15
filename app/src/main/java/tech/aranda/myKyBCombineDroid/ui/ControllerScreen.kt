@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tech.aranda.myKyBCombineDroid.ble.BLEManager
+import tech.aranda.myKyBCombineDroid.ble.HubState
 import kotlin.math.abs
 
 @Composable
@@ -24,6 +25,14 @@ fun ControllerScreen(
     var driveY by remember { mutableDoubleStateOf(0.0) }
     var steerX by remember { mutableDoubleStateOf(0.0) }
 
+    // Navigate back when disconnected
+    val state by ble.state.collectAsState()
+    LaunchedEffect(state) {
+        if (!state.isConnected) {
+            onDisconnect()
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -31,19 +40,16 @@ fun ControllerScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
 
-            // Top bar
             TopBar(
                 mod1 = ble.protocol.mod1,
                 mod2 = ble.protocol.mod2,
-                onDisconnect = onDisconnect
+                onDisconnect = { ble.disconnect() }
             )
 
-            // Speed bars
             SpeedBars(driveY = driveY, steerX = steerX)
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Joysticks
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -57,15 +63,16 @@ fun ControllerScreen(
                     verticalOnly = true,
                     onChanged = { _, y ->
                         driveY = y
+                        steerX = steerX // keep current steer
                         ble.sendDrive(driveY = y, steerX = steerX)
                     },
                     onReleased = {
                         driveY = 0.0
-                        ble.sendDrive(driveY = 0.0, steerX = steerX)
+                        // Send explicit stop — both channels neutral
+                        ble.sendStop()
                     }
                 )
 
-                // Center label
                 CenterLabel(driveY = driveY, steerX = steerX)
 
                 // Right joystick — steer
@@ -78,14 +85,14 @@ fun ControllerScreen(
                     },
                     onReleased = {
                         steerX = 0.0
-                        ble.sendDrive(driveY = driveY, steerX = 0.0)
+                        // Send explicit stop — both channels neutral
+                        ble.sendStop()
                     }
                 )
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Bottom bar
             BottomBar(mod1 = ble.protocol.mod1, mod2 = ble.protocol.mod2)
         }
     }
@@ -96,14 +103,9 @@ fun TopBar(mod1: Byte, mod2: Byte, onDisconnect: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 12.dp)
-            .border(
-                width = 0.dp,
-                color = Color.Transparent
-            ),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Connection indicator
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -135,7 +137,6 @@ fun TopBar(mod1: Byte, mod2: Byte, onDisconnect: () -> Unit) {
 
         Spacer(modifier = Modifier.weight(1f))
 
-        // Disconnect button
         TextButton(
             onClick = onDisconnect,
             border = androidx.compose.foundation.BorderStroke(
@@ -154,7 +155,7 @@ fun TopBar(mod1: Byte, mod2: Byte, onDisconnect: () -> Unit) {
         }
     }
 
-    Divider(color = Cyan.copy(alpha = 0.15f), thickness = 1.dp)
+    HorizontalDivider(color = Cyan.copy(alpha = 0.15f), thickness = 1.dp)
 }
 
 @Composable
@@ -223,7 +224,7 @@ fun CenterLabel(driveY: Double, steerX: Double) {
             letterSpacing = 3.sp
         )
         Spacer(modifier = Modifier.height(8.dp))
-        Divider(
+        HorizontalDivider(
             modifier = Modifier
                 .width(1.dp)
                 .height(40.dp),
@@ -234,7 +235,7 @@ fun CenterLabel(driveY: Double, steerX: Double) {
 
 @Composable
 fun BottomBar(mod1: Byte, mod2: Byte) {
-    Divider(color = Cyan.copy(alpha = 0.15f), thickness = 1.dp)
+    HorizontalDivider(color = Cyan.copy(alpha = 0.15f), thickness = 1.dp)
     Box(
         modifier = Modifier
             .fillMaxWidth()

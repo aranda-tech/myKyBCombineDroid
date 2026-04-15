@@ -1,6 +1,8 @@
 package tech.aranda.myKyBCombineDroid.ui
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,11 +29,10 @@ fun ScanScreen(
 ) {
     val isScanning = state is HubState.Scanning || state is HubState.Connecting
 
-    // Pulse animation
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulse by infiniteTransition.animateFloat(
-        initialValue = 0.9f,
-        targetValue = 1.1f,
+        initialValue = 0.88f,
+        targetValue = 1.05f,
         animationSpec = infiniteRepeatable(
             animation = tween(1500, easing = EaseInOut),
             repeatMode = RepeatMode.Reverse
@@ -39,143 +40,139 @@ fun ScanScreen(
         label = "pulse"
     )
 
-    Box(
+    val displayLog = if (log.isEmpty()) listOf("Waiting for Bluetooth...") else log
+
+    // Landscape layout: left column (branding + button) | right column (log)
+    Row(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
-        contentAlignment = Alignment.Center
+            .background(DarkBg)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // LEFT — branding + status button
         Column(
+            modifier = Modifier
+                .weight(0.45f)
+                .fillMaxHeight(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(0.dp)
+            verticalArrangement = Arrangement.Center
         ) {
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Icon
+            // Pulsing icon
             Box(
                 modifier = Modifier
-                    .size(80.dp)
+                    .size(48.dp)
                     .scale(pulse)
-                    .border(2.dp, Cyan.copy(alpha = 0.6f), CircleShape),
+                    .border(1.5.dp, Cyan.copy(alpha = 0.7f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text("📡", fontSize = 32.sp)
+                Text(
+                    text = "((·))",
+                    color = Cyan,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Title
             Text(
-                "KY BLOCKS",
+                text = "KY BLOCKS",
                 color = Cyan,
-                fontSize = 28.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace,
-                letterSpacing = 8.sp
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                "K96234 CONTROLLER",
-                color = Cyan.copy(alpha = 0.7f),
-                fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace,
                 letterSpacing = 4.sp
             )
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(3.dp))
 
-            // Status
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier
-                    .border(1.dp, stateColor(state).copy(alpha = 0.3f), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
-            ) {
-                if (isScanning) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(12.dp),
-                        color = Cyan,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .border(0.dp, Color.Transparent, CircleShape)
-                    ) {
-                        Surface(
-                            modifier = Modifier.fillMaxSize(),
-                            shape = CircleShape,
-                            color = stateColor(state)
-                        ) {}
-                    }
-                }
-                Text(
-                    state.description,
-                    color = stateColor(state),
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
-                    letterSpacing = 2.sp
-                )
-            }
+            Text(
+                text = "K96234 CONTROLLER",
+                color = Cyan.copy(alpha = 0.6f),
+                fontSize = 9.sp,
+                fontFamily = FontFamily.Monospace,
+                letterSpacing = 3.sp
+            )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Scan button
-            if (!isScanning) {
-                Button(
-                    onClick = onScan,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Cyan.copy(alpha = 0.1f)
-                    ),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Cyan),
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Text(
-                        "SCAN FOR HUB",
-                        color = Cyan,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 3.sp,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Log
+            // Status / scan button
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(160.dp),
-                color = Color.White.copy(alpha = 0.02f),
-                shape = RoundedCornerShape(4.dp),
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp, Color.White.copy(alpha = 0.08f)
-                )
+                    .height(44.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = Cyan.copy(alpha = 0.08f),
+                border = BorderStroke(1.5.dp, Cyan.copy(alpha = 0.6f)),
+                onClick = { if (!isScanning) onScan() }
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    if (isScanning) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(12.dp),
+                            color = Cyan,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(
+                        text = state.description,
+                        color = stateColor(state),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 2.sp
+                    )
+                }
+            }
+        }
+
+        // RIGHT — log
+        Column(
+            modifier = Modifier
+                .weight(0.55f)
+                .fillMaxHeight()
+        ) {
+            Text(
+                text = "LOG",
+                color = Cyan.copy(alpha = 0.4f),
+                fontSize = 8.sp,
+                fontFamily = FontFamily.Monospace,
+                letterSpacing = 3.sp
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(Color(0xFF080E1A), RoundedCornerShape(8.dp))
+                    .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(8.dp))
             ) {
                 LazyColumn(
-                    modifier = Modifier.padding(12.dp),
-                    reverseLayout = false
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(1.dp)
                 ) {
-                    items(log) { line ->
+                    items(displayLog) { line ->
                         Text(
-                            line,
-                            color = Color.White.copy(alpha = 0.4f),
-                            fontSize = 10.sp,
+                            text = line,
+                            color = Cyan.copy(alpha = 0.7f),
+                            fontSize = 9.sp,
                             fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(vertical = 2.dp)
+                            lineHeight = 13.sp
                         )
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
@@ -184,5 +181,5 @@ fun stateColor(state: HubState) = when (state) {
     is HubState.Connected -> Color(0xFF00FF88)
     is HubState.Error -> Color(0xFFFF3366)
     is HubState.Scanning, is HubState.Connecting -> Cyan
-    else -> Color.White.copy(alpha = 0.4f)
+    else -> Color.White.copy(alpha = 0.5f)
 }
